@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>365 Miracles Mobile</title>
+    <style>
+        :root {
+            --primary: #1e3c72;
+            --secondary: #2a5298;
+            --accent: #f39c12;
+            --success: #28a745;
+            --bg: #f4f7f6;
+        }
+
+        body { 
+            font-family: 'Segoe UI', sans-serif;
+            background: #222; /* Dark background to highlight the "phone" */
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        /* MOBILE WRAPPER - This makes it look like a phone */
+        .mobile-container {
+            width: 100%;
+            max-width: 414px; /* Standard iPhone Plus width */
+            background: var(--bg);
+            min-height: 100vh;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            padding: 25px 20px;
+            text-align: center;
+            color: white;
+            border-bottom-left-radius: 25px;
+            border-bottom-right-radius: 25px;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
+
+        .content { padding: 20px; flex: 1; }
+
+        /* Export Bar Styling */
+        .export-section {
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        h3 { margin-top: 0; color: var(--primary); font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+
+        label { display: block; margin-bottom: 5px; font-size: 0.85rem; font-weight: 600; color: #666; }
+
+        input, select {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            -webkit-appearance: none; /* Removes default mobile styling */
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-submit { background: var(--secondary); color: white; }
+        .btn-search { background: var(--success); color: white; }
+        .btn-export { background: var(--accent); color: white; margin-top: 10px; }
+
+        /* Table specifically optimized for mobile */
+        .results-area { overflow-x: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: left; }
+        th { color: var(--secondary); background: #f9f9f9; }
+
+    </style>
+</head>
+<body>
+
+<div class="mobile-container">
+    <header>
+        <h1>365 Miracles</h1>
+    </header>
+
+    <div class="content">
+        <div class="export-section">
+            <label>Reports</label>
+            <select id="exportPeriod">
+                <option value="day">Today</option>
+                <option value="week">Weekly</option>
+                <option value="month">Monthly</option>
+                <option value="all">All Records</option>
+            </select>
+            <button class="btn-export" onclick="exportData()">Download CSV Report</button>
+        </div>
+
+        <div class="card">
+            <h3>New Entry</h3>
+            <form id="entryForm">
+                <label>Mobile Number</label>
+                <input type="tel" id="mobile" placeholder="Enter number" oninput="this.value = this.value.replace(/[^0-9]/g, '')" required>
+                
+                <label>Amount (₹)</label>
+                <input type="number" id="amount" placeholder="0.00" required>
+                
+                <button type="submit" class="btn-submit">Submit Entry</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Find Transaction</h3>
+            <input type="tel" id="searchMobile" placeholder="Search by mobile" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+            <button onclick="searchRecords()" class="btn-search">Search Now</button>
+            
+            <div class="results-area" id="resultsTable" style="display:none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Mobile</th>
+                            <th>Amt</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- DATABASE LOGIC ---
+    document.getElementById('entryForm').onsubmit = function(e) {
+        e.preventDefault();
+        const mobile = document.getElementById('mobile').value;
+        const amount = document.getElementById('amount').value;
+        const now = new Date();
+        
+        const newRecord = { 
+            mobile, 
+            amount, 
+            displayDate: now.toLocaleString([], {hour: '2-digit', minute:'2-digit', day:'2-digit', month:'short'}),
+            timestamp: now.getTime() 
+        };
+
+        let transactions = JSON.parse(localStorage.getItem('miracleData')) || [];
+        transactions.unshift(newRecord); // Adds new record to the top
+        localStorage.setItem('miracleData', JSON.stringify(transactions));
+
+        alert("Saved!");
+        this.reset();
+    };
+
+    function searchRecords() {
+        const query = document.getElementById('searchMobile').value;
+        const transactions = JSON.parse(localStorage.getItem('miracleData')) || [];
+        const tableBody = document.getElementById('tableBody');
+        const filtered = transactions.filter(t => t.mobile === query);
+
+        tableBody.innerHTML = "";
+        if (filtered.length > 0) {
+            document.getElementById('resultsTable').style.display = "block";
+            filtered.forEach(item => {
+                tableBody.innerHTML += `<tr><td>${item.displayDate}</td><td>${item.mobile}</td><td>₹${item.amount}</td></tr>`;
+            });
+        } else { alert("No data found."); }
+    }
+
+    function exportData() {
+        const period = document.getElementById('exportPeriod').value;
+        const transactions = JSON.parse(localStorage.getItem('miracleData')) || [];
+        const now = new Date().getTime();
+        const limits = { day: 86400000, week: 604800000, month: 2592000000 };
+
+        let filtered = period === 'all' ? transactions : transactions.filter(t => (now - t.timestamp) < limits[period]);
+
+        if (filtered.length === 0) return alert("Nothing to export.");
+
+        let csv = "Date,Mobile,Amount\n" + filtered.map(r => `${r.displayDate},${r.mobile},${r.amount}`).join("\n");
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `365Miracles_${period}.csv`;
+        a.click();
+    }
+</script>
+
+</body>
+</html>
