@@ -10,12 +10,12 @@ app.use(express.json());
 
 // PostgreSQL connection (Supabase)
 const pool = new Pool({
-    user: 'your_supabase_user',
-    host: 'your_supabase_host',       // e.g., db.xxxxxx.supabase.co
-    database: 'your_database_name',
-    password: 'your_supabase_password',
+    user: 'postgres',                        // your Supabase user
+    host: 'db.gdjkeidewkbrdkhorxco.supabase.co', // your Supabase host
+    database: 'postgres',                     // your database name
+    password: 'admin123',                     // your DB password
     port: 5432,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false }        // required for Render/Supabase
 });
 
 // Test DB connection
