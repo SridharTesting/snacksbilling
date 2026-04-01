@@ -8,10 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ---------------- PostgreSQL connection (Supabase via Render env variable) ----------------
+// ---------------- PostgreSQL connection (Hardcoded) ----------------
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL, // expects DATABASE_URL in Render
-    ssl: { rejectUnauthorized: false }          // required for Render/Supabase
+    connectionString: 'postgresql://postgres:admin123@db.gdjkeidewkbrdkhorxco.supabase.co:5432/postgres',
+    ssl: { rejectUnauthorized: false }
 });
 
 // Test DB connection
@@ -19,12 +19,13 @@ pool.connect()
     .then(() => console.log('✅ PostgreSQL Connected'))
     .catch(err => console.error('DB Connection Error:', err));
 
+
 // ================= ADD TRANSACTION =================
 app.post('/add', async (req, res) => {
     try {
         const { mobile, amount } = req.body;
 
-        console.log("Incoming Data:", mobile, amount); // debug log
+        console.log("Incoming Data:", mobile, amount);
 
         const query = `
             INSERT INTO transactions (mobile, amount, entry_date)
@@ -32,6 +33,7 @@ app.post('/add', async (req, res) => {
         `;
 
         await pool.query(query, [mobile, amount]);
+
         res.status(200).send({ status: 'ok' });
     } catch (err) {
         console.error("INSERT ERROR:", err);
@@ -44,12 +46,12 @@ app.get('/export-all', async (req, res) => {
     try {
         const { period } = req.query;
         let query = "SELECT mobile, amount, entry_date FROM transactions WHERE 1=1";
-
+        
         if (period === 'today') query += " AND entry_date::date = CURRENT_DATE";
         else if (period === 'weekly') query += " AND entry_date >= NOW() - INTERVAL '7 days'";
         else if (period === 'fortnight') query += " AND entry_date >= NOW() - INTERVAL '14 days'";
         else if (period === 'monthly') query += " AND entry_date >= NOW() - INTERVAL '30 days'";
-
+        
         const result = await pool.query(query + " ORDER BY entry_date DESC");
         res.json(result.rows);
     } catch (err) {
