@@ -8,32 +8,30 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ PostgreSQL connection using CONNECTION STRING (FIXED)
+// ---------------- PostgreSQL connection (Supabase via Render env variable) ----------------
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,   // 🔥 important
-    ssl: { rejectUnauthorized: false }
+    connectionString: process.env.DATABASE_URL, // expects DATABASE_URL in Render
+    ssl: { rejectUnauthorized: false }          // required for Render/Supabase
 });
 
-// ✅ Test DB connection
+// Test DB connection
 pool.connect()
     .then(() => console.log('✅ PostgreSQL Connected'))
     .catch(err => console.error('DB Connection Error:', err));
-
 
 // ================= ADD TRANSACTION =================
 app.post('/add', async (req, res) => {
     try {
         const { mobile, amount } = req.body;
 
-        console.log("Incoming Data:", mobile, amount);
+        console.log("Incoming Data:", mobile, amount); // debug log
 
         const query = `
             INSERT INTO transactions (mobile, amount, entry_date)
-            VALUES ($1, $2, NOW())
+            VALUES ($1, $2, NOW() AT TIME ZONE 'Asia/Kolkata')
         `;
 
         await pool.query(query, [mobile, amount]);
-
         res.status(200).send({ status: 'ok' });
     } catch (err) {
         console.error("INSERT ERROR:", err);
@@ -41,18 +39,17 @@ app.post('/add', async (req, res) => {
     }
 });
 
-
 // ================= MASTER EXPORT =================
 app.get('/export-all', async (req, res) => {
     try {
         const { period } = req.query;
         let query = "SELECT mobile, amount, entry_date FROM transactions WHERE 1=1";
-        
+
         if (period === 'today') query += " AND entry_date::date = CURRENT_DATE";
         else if (period === 'weekly') query += " AND entry_date >= NOW() - INTERVAL '7 days'";
         else if (period === 'fortnight') query += " AND entry_date >= NOW() - INTERVAL '14 days'";
         else if (period === 'monthly') query += " AND entry_date >= NOW() - INTERVAL '30 days'";
-        
+
         const result = await pool.query(query + " ORDER BY entry_date DESC");
         res.json(result.rows);
     } catch (err) {
@@ -60,7 +57,6 @@ app.get('/export-all', async (req, res) => {
         res.status(500).send(err.message);
     }
 });
-
 
 // ================= SEARCH & STATS =================
 app.get('/search/:mobile', async (req, res) => {
@@ -103,7 +99,6 @@ app.get('/search/:mobile', async (req, res) => {
     }
 });
 
-
 // ================= DELETE =================
 app.delete('/delete/:id', async (req, res) => {
     try {
@@ -121,12 +116,10 @@ app.delete('/delete/:id', async (req, res) => {
     }
 });
 
-
 // ================= SERVE FRONTEND =================
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
-
 
 // ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
