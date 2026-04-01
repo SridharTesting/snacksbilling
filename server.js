@@ -1,6 +1,6 @@
 // server.js
 const express = require('express');
-const { Pool } = require('pg');       // PostgreSQL client
+const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
 
@@ -10,12 +10,12 @@ app.use(express.json());
 
 // PostgreSQL connection (Supabase)
 const pool = new Pool({
-    user: 'postgres',                        // your Supabase user
-    host: 'db.gdjkeidewkbrdkhorxco.supabase.co', // your Supabase host
-    database: 'postgres',                     // your database name
-    password: 'admin123',                     // your DB password
+    user: 'postgres',
+    host: 'db.gdjkeidewkbrdkhorxco.supabase.co',
+    database: 'postgres',
+    password: 'admin123',
     port: 5432,
-    ssl: { rejectUnauthorized: false }        // required for Render/Supabase
+    ssl: { rejectUnauthorized: false }
 });
 
 // Test DB connection
@@ -23,42 +23,56 @@ pool.connect()
     .then(() => console.log('✅ PostgreSQL Connected'))
     .catch(err => console.error('DB Connection Error:', err));
 
-// ---------------- ADD TRANSACTION ----------------
+
+// ================= ADD TRANSACTION =================
 app.post('/add', async (req, res) => {
     try {
         const { mobile, amount } = req.body;
+
+        console.log("Incoming Data:", mobile, amount); // 🔍 debug log
+
         const query = `
-            INSERT INTO Transactions (mobile, amount, entry_date)
-            VALUES ($1, $2, NOW() AT TIME ZONE 'Asia/Kolkata')
+            INSERT INTO transactions (mobile, amount, entry_date)
+            VALUES ($1, $2, NOW())
         `;
+
         await pool.query(query, [mobile, amount]);
+
         res.status(200).send({ status: 'ok' });
-    } catch (err) { res.status(500).send(err.message); }
+    } catch (err) {
+        console.error("INSERT ERROR:", err); // 🔴 important
+        res.status(500).send(err.message);
+    }
 });
 
-// ---------------- MASTER EXPORT ----------------
+
+// ================= MASTER EXPORT =================
 app.get('/export-all', async (req, res) => {
     try {
         const { period } = req.query;
-        let query = "SELECT mobile, amount, entry_date FROM Transactions WHERE 1=1";
+        let query = "SELECT mobile, amount, entry_date FROM transactions WHERE 1=1";
         
-        if (period === 'today') query += " AND entry_date::date = NOW()::date";
+        if (period === 'today') query += " AND entry_date::date = CURRENT_DATE";
         else if (period === 'weekly') query += " AND entry_date >= NOW() - INTERVAL '7 days'";
         else if (period === 'fortnight') query += " AND entry_date >= NOW() - INTERVAL '14 days'";
         else if (period === 'monthly') query += " AND entry_date >= NOW() - INTERVAL '30 days'";
         
         const result = await pool.query(query + " ORDER BY entry_date DESC");
         res.json(result.rows);
-    } catch (err) { res.status(500).send(err.message); }
+    } catch (err) {
+        console.error(err);
+        res.status(500).send(err.message);
+    }
 });
 
-// ---------------- SEARCH & STATS ----------------
+
+// ================= SEARCH & STATS =================
 app.get('/search/:mobile', async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
         const { mobile } = req.params;
 
-        let query = "SELECT * FROM Transactions WHERE mobile = $1";
+        let query = "SELECT * FROM transactions WHERE mobile = $1";
         let params = [mobile];
 
         if (startDate && endDate) {
@@ -69,37 +83,55 @@ app.get('/search/:mobile', async (req, res) => {
         query += " ORDER BY entry_date DESC";
         const records = await pool.query(query, params);
 
-        // Stats
         const statsQuery = `
             SELECT
                 COALESCE(SUM(amount), 0) AS overall,
-                COALESCE(SUM(CASE WHEN entry_date::date = NOW()::date THEN amount ELSE 0 END), 0) AS daily,
+                COALESCE(SUM(CASE WHEN entry_date::date = CURRENT_DATE THEN amount ELSE 0 END), 0) AS daily,
                 COALESCE(SUM(CASE WHEN entry_date >= NOW() - INTERVAL '7 days' THEN amount ELSE 0 END), 0) AS weekly,
                 COALESCE(SUM(CASE WHEN entry_date >= NOW() - INTERVAL '14 days' THEN amount ELSE 0 END), 0) AS fortnight,
                 COALESCE(SUM(CASE WHEN entry_date >= NOW() - INTERVAL '30 days' THEN amount ELSE 0 END), 0) AS monthly
-            FROM Transactions
+            FROM transactions
             WHERE mobile = $1
         `;
+
         const stats = await pool.query(statsQuery, [mobile]);
 
-        res.json({ transactions: records.rows, stats: stats.rows[0] });
-    } catch (err) { res.status(500).send(err.message); }
+        res.json({
+            transactions: records.rows,
+            stats: stats.rows[0]
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).send(err.message);
+    }
 });
 
-// ---------------- DELETE ----------------
+
+// ================= DELETE =================
 app.delete('/delete/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await pool.query("DELETE FROM Transactions WHERE id = $1", [id]);
+
+        await pool.query(
+            "DELETE FROM transactions WHERE id = $1",
+            [id]
+        );
+
         res.status(200).send({ status: 'deleted' });
-    } catch (err) { res.status(500).send(err.message); }
+    } catch (err) {
+        console.error(err);
+        res.status(500).send(err.message);
+    }
 });
 
-// ---------------- Serve index.html ----------------
+
+// ================= SERVE FRONTEND =================
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// ---------------- Start Server ----------------
+
+// ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Backend is running on port ${PORT}`));
