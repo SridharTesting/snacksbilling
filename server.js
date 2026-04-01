@@ -8,17 +8,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// PostgreSQL connection (Supabase)
+// ✅ PostgreSQL connection using CONNECTION STRING (FIXED)
 const pool = new Pool({
-    user: 'postgres',
-    host: 'db.gdjkeidewkbrdkhorxco.supabase.co',
-    database: 'postgres',
-    password: 'admin123',
-    port: 5432,
+    connectionString: process.env.DATABASE_URL,   // 🔥 important
     ssl: { rejectUnauthorized: false }
 });
 
-// Test DB connection
+// ✅ Test DB connection
 pool.connect()
     .then(() => console.log('✅ PostgreSQL Connected'))
     .catch(err => console.error('DB Connection Error:', err));
@@ -29,7 +25,7 @@ app.post('/add', async (req, res) => {
     try {
         const { mobile, amount } = req.body;
 
-        console.log("Incoming Data:", mobile, amount); // 🔍 debug log
+        console.log("Incoming Data:", mobile, amount);
 
         const query = `
             INSERT INTO transactions (mobile, amount, entry_date)
@@ -40,7 +36,7 @@ app.post('/add', async (req, res) => {
 
         res.status(200).send({ status: 'ok' });
     } catch (err) {
-        console.error("INSERT ERROR:", err); // 🔴 important
+        console.error("INSERT ERROR:", err);
         res.status(500).send(err.message);
     }
 });
